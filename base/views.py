@@ -210,11 +210,11 @@ def create_escrow(request):
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
 
-
+@csrf_exempt
 @transaction.atomic
 def complete_escrow(request, escrow_id):
     try:
-        escrow = Escrow.objects.select_for_update().get(id=escrow_id)
+        escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
     except ObjectDoesNotExist:
         return JsonResponse({"status": "failure", "message": "Escrow not found."})
 
