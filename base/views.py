@@ -14,7 +14,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
 from .utils import generate_random_string
 from django.middleware import csrf
-
+from decimal import Decimal
 
 @csrf_exempt
 def register_user(request):
@@ -24,17 +24,21 @@ def register_user(request):
         password = data['password']
         first_name = data['first_name']
         last_name = data['last_name']
+        address = generate_random_string(30)
+
         
-        user = CustomUser.objects.create_user(email=email, password=password, first_name=first_name, last_name=last_name)
+        user = CustomUser.objects.create_user(email=email, password=password, first_name=first_name, last_name=last_name,wallet_address=address)
         
         response_data = {
             'message': 'User registered successfully',
             'user': {
                 'id': user.id,
-                 'uid':user.identifier,
+                 'uid':user.uid,
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'balance':user.balance,
+                'wallet_address':user.wallet_address
             }
         }
         return JsonResponse(response_data)
@@ -74,12 +78,14 @@ def login_user(request):
             'message': 'Logged in successfully',
             'user': {
                 'id': user.id,
-                'uid':user.identifier,
+                'uid':user.uid,
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'password':user.password,
-                'csrf_token':csrf_token
+                'csrf_token':csrf_token,
+                'balance':user.balance,
+                'wallet_address':user.wallet_address
             }
         }
         return JsonResponse(response_data)
@@ -101,14 +107,14 @@ def transfer_funds(request):
         data = json.loads(request.body)
         from_wallet_address = data["from_wallet_address"]
         to_wallet_address = data["to_wallet_address"]
-        amount = float(data["amount"])
+        amount = Decimal(data["amount"])
 
         with transaction.atomic():
             from_wallet_address = get_object_or_404(
-                CustomUser, btc_wallet_address=from_wallet_address
+                CustomUser, wallet_address=from_wallet_address
             )
             to_wallet_address = get_object_or_404(
-                CustomUser, btc_wallet_address=to_wallet_address
+                CustomUser, wallet_address=to_wallet_address
             )
 
             if from_wallet_address.balance >= amount:
@@ -118,7 +124,11 @@ def transfer_funds(request):
                 from_wallet_address.save()
                 to_wallet_address.save()
 
-                return JsonResponse({"status": "success"})
+                return JsonResponse({
+                    "status": "success",
+                    "message":f"an amount of {amount} has been transferred from {from_wallet_address.wallet_address} to {to_wallet_address.wallet_address}"
+                                     })
+
             else:
                 return JsonResponse(
                     {"status": "failure", "message": "Insufficient balance"}

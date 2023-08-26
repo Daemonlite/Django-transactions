@@ -25,9 +25,11 @@ class CustomUserManager(BaseUserManager):
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
-    identifier = models.UUIDField(default=uuid.uuid4, editable=True)
+    uid = models.UUIDField(default=uuid.uuid4, editable=True)
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
+    balance = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
+    wallet_address = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
