@@ -8,13 +8,14 @@ from django.db import transaction
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from .models import Escrow_account, CustomUser
+from .models import Escrow, CustomUser
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
 from .utils import generate_random_string
 from django.middleware import csrf
 from decimal import Decimal
+from django.utils import timezone
 
 @csrf_exempt
 def register_user(request):
@@ -137,21 +138,57 @@ def transfer_funds(request):
         return JsonResponse({"status": "error", "message": str(e)})
 
 
-def deposit_escrow(request):
+
+
+# views.py
+
+
+@require_POST
+@transaction.atomic
+def create_escrow(request):
     try:
         data = json.loads(request.body)
-        escrow_id = data["escrow_id"]
-        amount = float(data["amount"])
+        buyer_id = data["buyer_id"]
+        seller_id = data["seller_id"]
+        usd_amount = Decimal(data["usd_amount"])
 
-        with transaction.atomic():
-            escrow = get_object_or_404(Escrow_account, escrow_id=escrow_id)
-            escrow.usdt_balance += amount
-            escrow.save()
+        btc_amount = usd_amount * Decimal("0.00003847")  # Conversion rate
 
-            user = get_object_or_404(CustomUser, id=data["user_id"])
-            user.account_balance -= amount
-            user.save()
+        buyer = get_object_or_404(CustomUser, uid=buyer_id)
+        seller = get_object_or_404(CustomUser, uid=seller_id)
 
-            return JsonResponse({"status": "success"})
+        if seller.btc_balance >= btc_amount:
+            escrow = Escrow.objects.create(
+                buyer=buyer,
+                seller=seller,
+                amount=btc_amount
+            )
+
+            # Update balances
+            seller.btc_balance -= btc_amount
+            seller.balance += usd_amount
+            buyer.btc_balance += btc_amount
+
+            seller.save()
+            buyer.save()
+
+            return JsonResponse({"status": "success", "escrow_id": escrow.escrow_uid})
+        else:
+            return JsonResponse({"status": "failure", "message": "Insufficient BTC balance"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
+
+
+def complete_escrow(request, escrow_id):
+    escrow = get_object_or_404(Escrow, id=escrow_id)
+
+    if not escrow.is_complete:
+        # Mark escrow as complete
+        escrow.is_complete = True
+        escrow.completed_at = timezone.now()
+        escrow.save()
+
+        return JsonResponse({"status": "success"})
+    else:
+        return JsonResponse({"status": "failure", "message": "Escrow is already completed."})
+

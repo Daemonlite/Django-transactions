@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager,PermissionsMixin
 import uuid
+from django.utils import timezone
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -29,6 +30,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     balance = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
+    btc_balance = models.DecimalField(max_digits=18, decimal_places=8,default=0)
     wallet_address = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -58,18 +60,20 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 
 
+# models.py
 
-class Escrow_account(models.Model):
-    user_id = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    escrow_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
-    btc_balance = models.DecimalField(max_digits=10, decimal_places=2)
-    balance = models.DecimalField(max_digits=10, decimal_places=2)
-    is_held = models.BooleanField(default=False)
+class Escrow(models.Model):
+    buyer = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='escrows_as_buyer')
+    seller = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='escrows_as_seller')
+    amount = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    is_complete = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    last_login = models.DateTimeField(null=True, blank=True)
-    is_verified = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    escrow_uid = models.UUIDField(default=uuid.uuid4, editable=True)
+    
+    def complete(self):
+        self.is_complete = True
+        self.completed_at = timezone.now()
+        self.save()
 
-    def __str__(self):
-        return self.escrow_id 
 
