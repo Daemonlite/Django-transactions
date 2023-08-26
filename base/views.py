@@ -12,94 +12,115 @@ from .models import Escrow, CustomUser
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
-from .utils import generate_random_string,send_receipient_email,send_sender_email
+from .utils import generate_random_string, send_receipient_email, send_sender_email
 from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
 def register_user(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         data = json.loads(request.body)
-        email = data['email']
-        password = data['password']
-        first_name = data['first_name']
-        last_name = data['last_name']
-        address = generate_random_string(30)
+        wallet_address = generate_random_string(30)
 
-        
-        user = CustomUser.objects.create_user(email=email, password=password, first_name=first_name, last_name=last_name,wallet_address=address)
-        
-        response_data = {
-            'message': 'User registered successfully',
-            'user': {
-                'id': user.id,
-                 'uid':user.uid,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'balance':user.balance,
-                'wallet_address':user.wallet_address
+        try:
+            user_data = {
+                "email": data["email"],
+                "first_name": data["first_name"],
+                "last_name": data["last_name"],
+                "password": make_password(data["password"]),
+                "wallet_address": wallet_address,
             }
-        }
-        return JsonResponse(response_data)
+            user = CustomUser.objects.create_user(**user_data)
+            return JsonResponse(
+                {
+                    "message": "User created successfully",
+                    "user": {
+                        "id": user.id,
+                        "uid": user.uid,
+                        "email": user.email,
+                        "password": user.password,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "wallet_address": user.wallet_address,
+                        "balance": user.balance,
+                        "btc_balance": user.btc_balance,
+                    },
+                },
+                status=201,
+            )
+
+        except Exception as e:
+            logger.warning(str(e))
+            return JsonResponse({"message": "Enter required fields"}, status=400)
 
 
 @csrf_exempt
 def login_user(request):
-   
-    if request.method != 'POST':
+
+    if request.method != "POST":
         return HttpResponse(status=405)
 
     try:
         data = json.loads(request.body)
-        email = data.get('email')
-        password = data.get('password')
-    except json.JSONDecodeError:
-        return JsonResponse({'message': 'Invalid JSON data in the request body'}, status=400)
+        email = data["email"]
+        password = data["password"]
+    except Exception as e:
+        return JsonResponse({"message": "Invalid Credentials"}, status=400)
 
     if not email or not password:
-        return JsonResponse({'message': 'Email and password are required'}, status=400)
+        return JsonResponse({"message": "Email and password are required"}, status=400)
 
     try:
         validate_email(email)
     except ValidationError:
-        return JsonResponse({'message': 'Invalid email format'}, status=400)
+        return JsonResponse({"message": "Invalid email format"}, status=400)
 
     try:
         user = CustomUser.objects.get(email=email)
-    except CustomUser.DoesNotExist:
-        return JsonResponse({'message': 'User with the provided email does not exist'}, status=401)
+    except Exception as e:
+        logger.warning(str(e))
+        return JsonResponse(
+            {"message": "User with the provided email does not exist"}, status=401
+        )
 
     if user.check_password(password):
         login(request, user)
-        
+
         csrf_token = csrf.get_token(request)
         response_data = {
-            'message': 'Logged in successfully',
-            'user': {
-                'id': user.id,
-                'uid':user.uid,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'password':user.password,
-                'csrf_token':csrf_token,
-                'balance':user.balance,
-                'wallet_address':user.wallet_address
-            }
+            "message": "Logged in successfully",
+            "user": {
+                "id": user.id,
+                "uid": user.uid,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "password": user.password,
+                "csrf_token": csrf_token,
+                "balance": user.balance,
+                "wallet_address": user.wallet_address,
+            },
         }
         return JsonResponse(response_data)
     else:
-        return JsonResponse({'message': 'Invalid credentials'}, status=401)
+        return JsonResponse({"message": "Invalid credentials"}, status=401)
+
 
 def logout_user(request):
     logout(request)
-    return JsonResponse({'message': 'Logged out successfully'})
+    return JsonResponse({"message": "Logged out successfully"})
 
 
-
+from django.db.models import F
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+from decimal import Decimal
+import json
 
 
 @csrf_exempt
@@ -112,36 +133,39 @@ def transfer_funds(request):
         amount = Decimal(data["amount"])
 
         with transaction.atomic():
-            from_wallet_address = get_object_or_404(
-                CustomUser, wallet_address=from_wallet_address
-            )
-            to_wallet_address = get_object_or_404(
-                CustomUser, wallet_address=to_wallet_address
-            )
+            try:
+                # select_for_update() is used to lock the selected rows for the duration of the transaction
+                from_user = CustomUser.objects.select_for_update().get(
+                    wallet_address=from_wallet_address
+                )
+                to_user = CustomUser.objects.select_for_update().get(
+                    wallet_address=to_wallet_address
+                )
+            except Exception as e:
+                return JsonResponse(
+                    {"status": "failure", "message": "Invalid wallet addresses"}
+                )
 
-            if from_wallet_address.balance >= amount:
-                from_wallet_address.balance -= amount
-                to_wallet_address.balance += amount
+            if from_user.balance >= amount:
+                # F expressions are used to update the balances atomically.
+                CustomUser.objects.filter(wallet_address=from_wallet_address).update(
+                    balance=F("balance") - amount
+                )
+                CustomUser.objects.filter(wallet_address=to_wallet_address).update(
+                    balance=F("balance") + amount
+                )
 
-                from_wallet_address.save()
-                to_wallet_address.save()
-                message = f"an amount of {amount} has been transferred from {from_wallet_address.wallet_address} to {to_wallet_address.wallet_address}"
-                send_receipient_email(recipient=to_wallet_address.email,message=message)
-                send_sender_email(sender=from_wallet_address.email,message=message)
-                return JsonResponse({
-                    "status": "success",
-                    "message":f"an amount of {amount} has been transferred from {from_wallet_address.wallet_address} to {to_wallet_address.wallet_address}"
-                    })
-                
+                message = f"An amount of {amount} has been transferred from {from_wallet_address} to {to_wallet_address}"
+                send_receipient_email(recipient=to_user.email, message=message)
+                send_sender_email(sender=from_user.email, message=message)
 
+                return JsonResponse({"status": "success", "message": message})
             else:
                 return JsonResponse(
                     {"status": "failure", "message": "Insufficient balance"}
                 )
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
-
-
 
 
 # views.py
@@ -158,33 +182,41 @@ def create_escrow(request):
 
         btc_amount = usd_amount * Decimal("0.00003847")  # Conversion rate
 
-        buyer = get_object_or_404(CustomUser, uid=buyer_id)
-        seller = get_object_or_404(CustomUser, uid=seller_id)
-
-        if seller.btc_balance >= btc_amount:
-            escrow = Escrow.objects.create(
-                buyer=buyer,
-                seller=seller,
-                amount=btc_amount
+        try:
+            buyer = CustomUser.objects.select_for_update().get(uid=buyer_id)
+            seller = CustomUser.objects.select_for_update().get(uid=seller_id)
+        except ObjectDoesNotExist:
+            return JsonResponse(
+                {"status": "failure", "message": "Invalid buyer or seller ID"}
             )
 
-            # Update balances
-            seller.btc_balance -= btc_amount
-            seller.balance += usd_amount
-            buyer.btc_balance += btc_amount
+        if seller.btc_balance >= btc_amount:
+            Escrow.objects.create(buyer=buyer, seller=seller, amount=btc_amount)
 
-            seller.save()
-            buyer.save()
+            # Update balances atomically
+            CustomUser.objects.filter(uid=buyer_id).update(
+                btc_balance=F("btc_balance") + btc_amount
+            )
+            CustomUser.objects.filter(uid=seller_id).update(
+                btc_balance=F("btc_balance") - btc_amount,
+                balance=F("balance") + usd_amount,
+            )
 
-            return JsonResponse({"status": "success", "escrow_id": escrow.escrow_uid})
+            return JsonResponse({"status": "success"})
         else:
-            return JsonResponse({"status": "failure", "message": "Insufficient BTC balance"})
+            return JsonResponse(
+                {"status": "failure", "message": "Insufficient BTC balance"}
+            )
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
 
 
+@transaction.atomic
 def complete_escrow(request, escrow_id):
-    escrow = get_object_or_404(Escrow, id=escrow_id)
+    try:
+        escrow = Escrow.objects.select_for_update().get(id=escrow_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({"status": "failure", "message": "Escrow not found."})
 
     if not escrow.is_complete:
         # Mark escrow as complete
@@ -195,4 +227,3 @@ def complete_escrow(request, escrow_id):
         return JsonResponse({"status": "success"})
     else:
         return JsonResponse({"status": "failure", "message": "Escrow is already completed."})
-
