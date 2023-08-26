@@ -12,10 +12,11 @@ from .models import Escrow, CustomUser
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
-from .utils import generate_random_string
+from .utils import generate_random_string,send_receipient_email,send_sender_email
 from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
+
 
 @csrf_exempt
 def register_user(request):
@@ -124,11 +125,14 @@ def transfer_funds(request):
 
                 from_wallet_address.save()
                 to_wallet_address.save()
-
+                message = f"an amount of {amount} has been transferred from {from_wallet_address.wallet_address} to {to_wallet_address.wallet_address}"
+                send_receipient_email(recipient=to_wallet_address.email,message=message)
+                send_sender_email(sender=from_wallet_address.email,message=message)
                 return JsonResponse({
                     "status": "success",
                     "message":f"an amount of {amount} has been transferred from {from_wallet_address.wallet_address} to {to_wallet_address.wallet_address}"
-                                     })
+                    })
+                
 
             else:
                 return JsonResponse(
