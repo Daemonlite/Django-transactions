@@ -17,7 +17,7 @@ from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
 import logging
-
+from django.db.models import F
 logger = logging.getLogger(__name__)
 
 
@@ -116,12 +116,6 @@ def logout_user(request):
     return JsonResponse({"message": "Logged out successfully"})
 
 
-from django.db.models import F
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
-from decimal import Decimal
-import json
-
 
 @csrf_exempt
 @require_POST
@@ -185,7 +179,7 @@ def create_escrow(request):
         try:
             buyer = CustomUser.objects.select_for_update().get(uid=buyer_id)
             seller = CustomUser.objects.select_for_update().get(uid=seller_id)
-        except ObjectDoesNotExist:
+        except Exception as e:
             return JsonResponse(
                 {"status": "failure", "message": "Invalid buyer or seller ID"}
             )
@@ -215,7 +209,8 @@ def create_escrow(request):
 def complete_escrow(request, escrow_id):
     try:
         escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
-    except ObjectDoesNotExist:
+    except Exception as e:
+        logger.warning(str(e))
         return JsonResponse({"status": "failure", "message": "Escrow not found."})
 
     if not escrow.is_complete:
