@@ -29,3 +29,10 @@ def send_sender_email(sender,message):
         html_message=' <p>Hi,there you have successfully sent your funds</p>!',
     )
 
+
+def add_fees(amount):
+    if amount >= 100:
+        return amount * 0.1
+    elif amount < 100:
+        return amount * 0.05
+    return

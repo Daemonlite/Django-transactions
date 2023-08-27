@@ -12,7 +12,7 @@ from .models import Escrow, CustomUser
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
-from .utils import generate_random_string, send_receipient_email, send_sender_email
+from .utils import generate_random_string, send_receipient_email, send_sender_email,add_fees
 from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
@@ -142,12 +142,22 @@ def transfer_funds(request):
 
             if from_user.balance >= amount:
                 # F expressions are used to update the balances atomically.
+                amount_float = float(amount)
+                fee = add_fees(amount_float)
+                fee_float = float(fee)
+                
                 CustomUser.objects.filter(wallet_address=from_wallet_address).update(
-                    balance=F("balance") - amount
+                    balance=F("balance") - amount_float
                 )
+                
+                CustomUser.objects.filter(wallet_address=from_wallet_address).update(
+                    balance=F("balance") - fee_float
+                )
+                
                 CustomUser.objects.filter(wallet_address=to_wallet_address).update(
-                    balance=F("balance") + amount
+                    balance=F("balance") + amount_float
                 )
+   
 
                 message = f"An amount of {amount} has been transferred from {from_wallet_address} to {to_wallet_address}"
                 send_receipient_email(recipient=to_user.email, message=message)
