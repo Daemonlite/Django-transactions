@@ -197,13 +197,22 @@ def create_escrow(request):
         if seller.btc_balance >= btc_amount:
             Escrow.objects.create(buyer=buyer, seller=seller, amount=btc_amount)
 
+            usd_amount_float = float(usd_amount)
+            btc_amount_float = float(btc_amount)
+
+            fee = add_fees(usd_amount_float)
+          
+
             # Update balances atomically
             CustomUser.objects.filter(uid=buyer_id).update(
-                btc_balance=F("btc_balance") + btc_amount
+                btc_balance=F("btc_balance") +  btc_amount_float
             )
             CustomUser.objects.filter(uid=seller_id).update(
-                btc_balance=F("btc_balance") - btc_amount,
-                balance=F("balance") + usd_amount,
+                btc_balance=F("btc_balance") -  btc_amount_float,
+                balance=F("balance") + usd_amount_float,
+            )
+            CustomUser.objects.filter(uid=seller_id).update(
+                balance=F("balance") - fee,
             )
 
             return JsonResponse({"status": "success"})
