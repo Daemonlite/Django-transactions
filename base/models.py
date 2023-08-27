@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager,PermissionsMixin
 import uuid
 from django.utils import timezone
+
+
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -77,3 +80,10 @@ class Escrow(models.Model):
         self.save()
 
 
+class BTC(models.Model):
+    date = models.DateTimeField(auto_now_add=True)
+    fiat = models.CharField(max_length=10)
+    crypto = models.DecimalField(decimal_places=8, max_digits=18, default=0)
+
+    def __str__(self):
+        return self.fiat
