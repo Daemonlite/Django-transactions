@@ -8,7 +8,7 @@ from django.db import transaction
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from .models import Escrow, CustomUser
+from .models import Escrow, CustomUser,BTC
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
@@ -183,8 +183,8 @@ def create_escrow(request):
         buyer_id = data["buyer_id"]
         seller_id = data["seller_id"]
         usd_amount = Decimal(data["usd_amount"])
-
-        btc_amount = usd_amount * Decimal("0.00003847")  # Conversion rate
+        btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
+        btc_amount = usd_amount * Decimal(btc_price["crypto"])  # Conversion rate
 
         try:
             buyer = CustomUser.objects.select_for_update().get(uid=buyer_id)

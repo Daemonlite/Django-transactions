@@ -4,3 +4,4 @@ from .models import *
 
 admin.site.register(CustomUser)
 admin.site.register(Escrow)
+admin.site.register(BTC)
