@@ -11,8 +11,8 @@ from django.views.decorators.http import require_POST
 from .models import Escrow, CustomUser,BTC
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from django.contrib.auth.hashers import make_password, check_password
-from .utils import generate_random_string, send_receipient_email, send_sender_email,add_fees
+from django.contrib.auth.hashers import make_password
+from .utils import generate_random_string, add_fees
 from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
@@ -160,10 +160,8 @@ def transfer_funds(request):
    
 
                 message = f"An amount of {amount} has been transferred from {from_wallet_address} to {to_wallet_address}"
-                send_receipient_email(recipient=to_user.email, message=message)
-                send_sender_email(sender=from_user.email, message=message)
 
-                return JsonResponse({"status": "success", "message": message})
+                return JsonResponse({"status": "success", "message": message, "fee": fee})
             else:
                 return JsonResponse(
                     {"status": "failure", "message": "Insufficient balance"}
