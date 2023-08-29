@@ -66,10 +66,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 # models.py
 
 class Escrow(models.Model):
-    buyer = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='escrows_as_buyer')
-    seller = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='escrows_as_seller')
+    name = models.CharField(max_length=100)
+    buyer_id = models.CharField(max_length=100,blank=True,null=True)
+    seller_id = models.CharField(max_length=100,blank=True,null=True)
     amount = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    Funds = models.DecimalField(max_digits=18, decimal_places=2,default=0)
+    btc_balance = models.DecimalField(max_digits=18, decimal_places=8,default=0)
     is_complete = models.BooleanField(default=False)
+    is_held = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     escrow_uid = models.UUIDField(default=uuid.uuid4, editable=True)
@@ -78,6 +82,9 @@ class Escrow(models.Model):
         self.is_complete = True
         self.completed_at = timezone.now()
         self.save()
+
+    def __str__(self):
+        return self.name
 
 
 class BTC(models.Model):
