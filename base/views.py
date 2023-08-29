@@ -266,22 +266,23 @@ def withdraw_from_escrow(request):
     
         escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
         seller = CustomUser.objects.select_for_update().get(uid=seller_id)
+        print(type(seller.uid))
+        print(type(escrow.seller_id))
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
-        if seller.uid == escrow.seller_id and escrow.Funds >= amounts:
+        if  str(seller.uid) == escrow.seller_id and escrow.Funds >= amounts:
             escrow.Funds -= amounts
-            escrow.btc_balance -= btc_value
             seller.balance += amounts
             escrow.save()
             seller.save()
             return JsonResponse({"status": "success"})
         else:
             return JsonResponse(
-                {"status": "failure", "message": "Insufficient funds"}
+                {"status": "failure", "message": "Insufficient funds","seller_id":escrow.seller_id,"seller":seller.uid}
             )
     except Exception as e:
-        return JsonResponse({"status":"error","message":str(e)})
+        return JsonResponse({"status":"error","message":str(e)}, status=400)
 
 @csrf_exempt
 @transaction.atomic
