@@ -163,6 +163,27 @@ def transfer_funds(request):
 
 
 @require_POST
+def create_escrow(request):
+    try:
+        data = json.loads(request.body)
+        name = data["name"]
+        escrow_data = {
+            "name":data["name"],
+            "seller_id":data["seller_id"],
+        }
+        existing_escrow = Escrow.objects.filter(name=name)
+        if existing_escrow.exists():
+            return JsonResponse({"status": "error", "message":"An escrow already exists using the name provided"})
+        else:
+            Escrow.objects.create(**escrow_data)
+            return JsonResponse({"status": "success", "message":"Escrow created successfully"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
+    
+    
+
+
+@require_POST
 @transaction.atomic
 def deposit_escrow(request):
     data = json.loads(request.body)
@@ -191,25 +212,6 @@ def deposit_escrow(request):
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
-@require_POST
-def create_escrow(request):
-    try:
-        data = json.loads(request.body)
-        name = data["name"]
-        escrow_data = {
-            "name":data["name"],
-            "seller_id":data["seller_id"],
-        }
-        existing_escrow = Escrow.objects.filter(name=name)
-        if existing_escrow.exists():
-            return JsonResponse({"status": "error", "message":"An escrow already exists using the name provided"})
-        else:
-            Escrow.objects.create(**escrow_data)
-            return JsonResponse({"status": "success", "message":"Escrow created successfully"})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)})
-    
-    
 @require_POST
 @transaction.atomic
 def buy_from_escrow(request):
@@ -253,6 +255,33 @@ def buy_from_escrow(request):
     except Exception as e:
         return JsonResponse({"status":"error","message":str(e)})
 
+@require_POST
+@transaction.atomic
+def withdraw_from_escrow(request):
+    try:
+        data = json.loads(request.body)
+        escrow_id = data["escrow_id"]
+        amount = data["amount"]
+        seller_id = data["seller_id"]
+    
+        escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
+        seller = CustomUser.objects.select_for_update().get(uid=seller_id)
+        amounts = Decimal(amount)
+        btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
+        btc_value = amounts * Decimal(btc_price["crypto"])
+        if seller.uid == escrow.seller_id and escrow.Funds >= amounts:
+            escrow.Funds -= amounts
+            escrow.btc_balance -= btc_value
+            seller.balance += amounts
+            escrow.save()
+            seller.save()
+            return JsonResponse({"status": "success"})
+        else:
+            return JsonResponse(
+                {"status": "failure", "message": "Insufficient funds"}
+            )
+    except Exception as e:
+        return JsonResponse({"status":"error","message":str(e)})
 
 @csrf_exempt
 @transaction.atomic
