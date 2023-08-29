@@ -94,3 +94,20 @@ class BTC(models.Model):
 
     def __str__(self):
         return self.fiat
+    
+class escrow_transaction_history(models.Model):
+    escrow_id = models.UUIDField(default=uuid.uuid4, editable=True)
+    buyer_id = models.CharField(max_length=100,blank=True,null=True)
+    seller_id = models.CharField(max_length=100,blank=True,null=True)
+    amount = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    btc_balance = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    is_complete = models.BooleanField(default=False)
+    is_held = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    escrow_uid = models.UUIDField(default=uuid.uuid4, editable=True)
+    
+    def complete(self):
+        self.is_complete = True
+        self.completed_at = timezone.now()
+        self.save()

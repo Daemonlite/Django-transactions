@@ -8,7 +8,7 @@ from django.db import transaction
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from .models import Escrow, CustomUser,BTC
+from .models import Escrow, CustomUser,BTC,escrow_transaction_history
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
@@ -231,11 +231,25 @@ def buy_from_escrow(request):
             buyer.balance -= amounts
             escrow.save()
             buyer.save()
+
+            escrow_history = {
+            "escrow_id":escrow_id,
+            "buyer_id":buyer_id,
+            "seller_id":escrow.seller_id,
+            "amount":amount,
+            "btc_balance":btc_value,
+            "is_complete":  escrow.is_complete,
+            "is_held": escrow.is_held,
+            "created_at":escrow.created_at,
+            "completed_at":escrow.completed_at,
+            }
+            escrow_transaction_history.objects.create(**escrow_history)
             return JsonResponse({"status": "success"})
         else:
             return JsonResponse(
                 {"status": "failure", "message": "Insufficient BTC balance"}
             )
+
     except Exception as e:
         return JsonResponse({"status":"error","message":str(e)})
 

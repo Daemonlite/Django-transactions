@@ -1,5 +1,5 @@
 from django.urls import path
-from base.views import transfer_funds,register_user,login_user,logout_user,create_escrow,complete_escrow,deposit_escrow
+from base.views import *
 
 urlpatterns = [
     path('register/',register_user,name='register_user'),
@@ -9,6 +9,7 @@ urlpatterns = [
     path('create_escrow/', create_escrow,name='create_escrow'),
     path('complete_escrow/<str:escrow_id>/', complete_escrow,name='complete_escrow'),
     path('deposit_escrow/', deposit_escrow,name='deposit_escrow'),
+    path('buy_from_escrow/', buy_from_escrow,name='buy_from_escrow'),
 
 
 ]
