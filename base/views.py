@@ -84,6 +84,7 @@ def login_user(request):
                     "wallet_address": user.wallet_address,
                     "balance": user.balance,
                     "btc_balance": user.btc_balance,
+                    "csrf_token": csrf.get_token(request),
                 },
             })
         else:
