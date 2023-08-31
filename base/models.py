@@ -69,7 +69,7 @@ class Escrow(models.Model):
     name = models.CharField(max_length=100)
     buyer_id = models.CharField(max_length=100,blank=True,null=True)
     seller_id = models.CharField(max_length=100,blank=True,null=True)
-    amount = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    usd_amount = models.DecimalField(max_digits=18, decimal_places=2,default=0)
     Funds = models.DecimalField(max_digits=18, decimal_places=2,default=0)
     btc_balance = models.DecimalField(max_digits=18, decimal_places=8,default=0)
     is_complete = models.BooleanField(default=False)

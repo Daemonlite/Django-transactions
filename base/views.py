@@ -59,9 +59,6 @@ def register_user(request):
             return JsonResponse({"message": "Enter required fields"}, status=400)
 
 
-
-
-
 @csrf_exempt
 def login_user(request):
     if request.method != "POST":
@@ -169,7 +166,8 @@ def create_escrow(request):
         name = data["name"]
         escrow_data = {
             "name":data["name"],
-            "seller_id":data["seller_id"],
+            "seller_id":data["seller_id"]
+            
         }
         existing_escrow = Escrow.objects.filter(name=name)
         if existing_escrow.exists():
@@ -196,6 +194,7 @@ def deposit_escrow(request):
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
+        escrow.usd_amount = escrow.btc_balance * Decimal(btc_price["crypto"])
 
         if seller.btc_balance >= btc_value:
             escrow.Funds += amounts
@@ -229,6 +228,8 @@ def buy_from_escrow(request):
         if buyer.balance >= btc_value:
             escrow.Funds += amounts
             escrow.btc_balance -= btc_value
+            escrow.usd_amount -= amounts
+            escrow.usd_amount -= btc_value
             buyer.btc_balance += btc_value
             buyer.balance -= amounts
             escrow.save()
@@ -271,9 +272,11 @@ def withdraw_from_escrow(request):
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
+
         if  str(seller.uid) == escrow.seller_id and escrow.Funds >= amounts:
             escrow.Funds -= amounts
             seller.balance += amounts
+            escrow.btc_balance -= btc_value
             escrow.save()
             seller.save()
             return JsonResponse({"status": "success"})

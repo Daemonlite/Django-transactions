@@ -12,4 +12,5 @@ urlpatterns = [
     path('buy_from_escrow/', buy_from_escrow,name='buy_from_escrow'),
     path('withdraw_from_escrow/', withdraw_from_escrow,name='withdraw_from_escrow'),
 
+
 ]
