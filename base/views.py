@@ -169,7 +169,7 @@ def create_escrow(request):
             return JsonResponse({"status": "error", "message":"An escrow already exists using the name provided"})
         else:
             Escrow.objects.create(**escrow_data)
-            return JsonResponse({"status": "success", "message":"Escrow created successfully"})
+            return JsonResponse({"status": "success", "message":f"Escrow {name} created successfully"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
     
@@ -194,6 +194,7 @@ def deposit_escrow(request):
         if seller.btc_balance >= btc_value:
             escrow.Funds += amounts
             escrow.btc_balance += btc_value
+            escrow.usd_amount += amounts
             seller.btc_balance -= btc_value
             escrow.save()
             seller.save()
@@ -243,7 +244,7 @@ def buy_from_escrow(request):
             "completed_at":escrow.completed_at,
             }
             escrow_transaction_history.objects.create(**escrow_history)
-            return JsonResponse({"status": "success"})
+            return JsonResponse({"status": "success","message":f"You have successfully bought {amount}$ BTC from {escrow.name}"})
         else:
             escrow.is_complete = False
             return JsonResponse(
