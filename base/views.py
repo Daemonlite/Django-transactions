@@ -6,7 +6,7 @@ from django.db import transaction
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST,require_GET
-from .models import Escrow, CustomUser,BTC,escrow_transaction_history
+from .models import Escrow,Profile,BTC,escrow_transaction_history
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password,check_password
@@ -34,7 +34,7 @@ def register_user(request):
                 "password": make_password(data["password"]),
                 "wallet_address": wallet_address,
             }
-            user = CustomUser.objects.create(**user_data)
+            user =Profile.objects.create(**user_data)
             return JsonResponse(
                 {
                     "message": "User created successfully",
@@ -55,8 +55,7 @@ def register_user(request):
             )
 
         except Exception as e:
-            logger.warning(str(e))
-            return JsonResponse({"message": "Enter required fields"}, status=400)
+            return JsonResponse({"message": "Enter required fields","error": str(e)}, status=400)
 
 
 @csrf_exempt
@@ -67,11 +66,11 @@ def login_user(request):
         email = data["email"]
         password = data["password"]
 
-        user = CustomUser.objects.filter(email=email)[0]
+        user = Profile.objects.get(email=email)
         checker = check_password(password,user.password)
         print(user)
         print(checker)
-        if user and check_password(password,user.password):
+        if user and checker:
             login(request, user)
             return JsonResponse({
                 "message": "Login successful",
@@ -79,6 +78,7 @@ def login_user(request):
                     "id": user.id,
                     "uid": user.uid,
                     "email": user.email,
+                    "password":user.password,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "wallet_address": user.wallet_address,
@@ -111,10 +111,10 @@ def transfer_funds(request):
         with transaction.atomic():
             try:
                 # select_for_update() is used to lock the selected rows for the duration of the transaction
-                from_user = CustomUser.objects.select_for_update().get(
+                from_user =Profile.objects.select_for_update().get(
                     wallet_address=from_wallet_address
                 )
-                to_user = CustomUser.objects.select_for_update().get(
+                to_user =Profile.objects.select_for_update().get(
                     wallet_address=to_wallet_address
                 )
             except Exception as e:
@@ -128,15 +128,15 @@ def transfer_funds(request):
                 fee = add_fees(amount_float)
                 fee_float = float(fee)
                 
-                CustomUser.objects.filter(wallet_address=from_wallet_address).update(
+                Profile.objects.filter(wallet_address=from_wallet_address).update(
                     balance=F("balance") - amount_float
                 )
                 
-                CustomUser.objects.filter(wallet_address=from_wallet_address).update(
+                Profile.objects.filter(wallet_address=from_wallet_address).update(
                     balance=F("balance") - fee_float
                 )
                 
-                CustomUser.objects.filter(wallet_address=to_wallet_address).update(
+                Profile.objects.filter(wallet_address=to_wallet_address).update(
                     balance=F("balance") + amount_float
                 )
    
@@ -184,7 +184,7 @@ def deposit_escrow(request):
     amount = data["amount"]
     try:
         escrow = Escrow.objects.select_for_update().get(escrow_uid =escrow_id)
-        seller = CustomUser.objects.select_for_update().get(wallet_address=seller_wallet)
+        seller =Profile.objects.select_for_update().get(wallet_address=seller_wallet)
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
@@ -215,7 +215,7 @@ def buy_from_escrow(request):
         buyer_id = data["buyer_id"]
 
         escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
-        buyer = CustomUser.objects.select_for_update().get(uid=buyer_id)
+        buyer =Profile.objects.select_for_update().get(uid=buyer_id)
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
@@ -262,7 +262,7 @@ def withdraw_from_escrow(request):
         seller_id = data["seller_id"]
     
         escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
-        seller = CustomUser.objects.select_for_update().get(uid=seller_id)
+        seller =Profile.objects.select_for_update().get(uid=seller_id)
         print(type(seller.uid))
         print(type(escrow.seller_id))
         amounts = Decimal(amount)
@@ -377,7 +377,7 @@ def get_escrow_by_id(request, escrow_id):
 @require_GET
 def get_all_users(request):
     try:
-        users = CustomUser.objects.all()
+        users =Profile.objects.all()
         response = []
         for user in users:
             response.append(

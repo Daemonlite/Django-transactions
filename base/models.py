@@ -1,24 +1,20 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager,PermissionsMixin
 import uuid
 from django.utils import timezone
 
-from django.contrib.auth.models import User
-
-
-
-class CustomUser(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+class Profile(models.Model):
     email = models.EmailField(unique=True)
     uid = models.UUIDField(default=uuid.uuid4, editable=True)
+    password = models.CharField(max_length=100,default="")
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
-    balance = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
-    btc_balance = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    btc_balance = models.DecimalField(max_digits=18, decimal_places=8, default=0)
     wallet_address = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-
+    first_login = models.DateTimeField(auto_now_add=True)
+    last_login = models.DateTimeField(auto_now=True)
     def __str__(self):
         return self.first_name
 
