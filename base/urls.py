@@ -11,6 +11,7 @@ urlpatterns = [
     path('deposit_escrow/', deposit_escrow,name='deposit_escrow'),
     path('buy_from_escrow/', buy_from_escrow,name='buy_from_escrow'),
     path('withdraw_from_escrow/', withdraw_from_escrow,name='withdraw_from_escrow'),
+    path('get_user_escrow/<str:user_id>/', get_escrow_by_user_id,name='user_escrow'),
 
 
 ]

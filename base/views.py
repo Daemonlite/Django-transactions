@@ -305,3 +305,25 @@ def complete_escrow(request, escrow_id):
         return JsonResponse({"status": "success"})
     else:
         return JsonResponse({"status": "failure", "message": "Escrow is already completed."})
+
+
+def get_escrow_by_user_id(request, user_id):
+    try:
+        escrow = Escrow.objects.select_for_update().get(seller_id=user_id)
+        response = {
+            "escrow_id": escrow.escrow_uid,
+            "escrow_name":escrow.name,
+            "usd_amount": escrow.usd_amount,
+            "seller_id": escrow.seller_id,
+            "btc_balance": escrow.btc_balance,
+            "withdrawable_funds": escrow.Funds,
+            "is_complete": escrow.is_complete,
+            "is_held": escrow.is_held,
+            "created_at": escrow.created_at,
+            "completed_at": escrow.completed_at,
+        }
+        return JsonResponse(response)
+    except Escrow.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Escrow not found"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
