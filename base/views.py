@@ -1,8 +1,6 @@
 from django.shortcuts import render
-
 # Create your views here.
 from django.contrib.auth import authenticate, login, logout
-from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 import json
@@ -11,11 +9,12 @@ from django.views.decorators.http import require_POST,require_GET
 from .models import Escrow, CustomUser,BTC,escrow_transaction_history
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password,check_password
 from .utils import generate_random_string, add_fees
 from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
+
 import logging
 from django.db.models import F
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ def register_user(request):
                 "password": make_password(data["password"]),
                 "wallet_address": wallet_address,
             }
-            user = CustomUser.objects.create_user(**user_data)
+            user = CustomUser.objects.create(**user_data)
             return JsonResponse(
                 {
                     "message": "User created successfully",
@@ -61,43 +60,37 @@ def register_user(request):
 
 
 @csrf_exempt
+@require_POST
 def login_user(request):
-    if request.method != "POST":
-        return JsonResponse({"message": "Method Not Allowed"}, status=405)
-
     try:
         data = json.loads(request.body)
         email = data["email"]
         password = data["password"]
-    except json.JSONDecodeError:
-        return JsonResponse({"message": "Invalid JSON format"}, status=400)
 
-    if not email or not password:
-        return JsonResponse({"message": "Email and password are required"}, status=400)
+        user = CustomUser.objects.filter(email=email)[0]
+        checker = check_password(password,user.password)
+        print(user)
+        print(checker)
+        if user and check_password(password,user.password):
+            login(request, user)
+            return JsonResponse({
+                "message": "Login successful",
+                "user": {
+                    "id": user.id,
+                    "uid": user.uid,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "wallet_address": user.wallet_address,
+                    "balance": user.balance,
+                    "btc_balance": user.btc_balance,
+                },
+            })
+        else:
+            return JsonResponse({"message": "Invalid email or password"}, status=400)
+    except Exception as e:
+        return JsonResponse({"status":"failure", "message": str(e)})
 
-    try:
-        user = CustomUser.objects.get(email=email)
-    except CustomUser.DoesNotExist:
-        return JsonResponse({"message": "User with the provided email does not exist"}, status=401)
-
-    authenticated_user = authenticate(request, email=email, password=password)
-    if authenticated_user is not None:
-        login(request, authenticated_user)
-
-        response_data = {
-            "message": "Logged in successfully",
-            "user": {
-                "id": authenticated_user.id,
-                "email": authenticated_user.email,
-                "first_name": authenticated_user.first_name,
-                "last_name": authenticated_user.last_name,
-                "balance": authenticated_user.balance,
-                "wallet_address": authenticated_user.wallet_address,
-            },
-        }
-        return JsonResponse(response_data)
-    else:
-        return JsonResponse({"message": "Invalid credentials"}, status=401)
 
 
 def logout_user(request):
@@ -289,6 +282,8 @@ def withdraw_from_escrow(request):
             )
     except Exception as e:
         return JsonResponse({"status":"error","message":str(e)}, status=400)
+    
+
 @require_POST
 @csrf_exempt
 @transaction.atomic
