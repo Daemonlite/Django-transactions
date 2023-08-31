@@ -7,7 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 import json
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST,require_GET
 from .models import Escrow, CustomUser,BTC,escrow_transaction_history
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -49,6 +49,7 @@ def register_user(request):
                         "wallet_address": user.wallet_address,
                         "balance": user.balance,
                         "btc_balance": user.btc_balance,
+                        "csrf_token": csrf.get_token(request),
                     },
                 },
                 status=201,
@@ -226,6 +227,7 @@ def buy_from_escrow(request):
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
         if buyer.balance >= btc_value:
+            escrow.is_complete = True
             escrow.Funds += amounts
             escrow.btc_balance -= btc_value
             escrow.usd_amount -= amounts
@@ -249,6 +251,7 @@ def buy_from_escrow(request):
             escrow_transaction_history.objects.create(**escrow_history)
             return JsonResponse({"status": "success"})
         else:
+            escrow.is_complete = False
             return JsonResponse(
                 {"status": "failure", "message": "Insufficient BTC balance"}
             )
@@ -286,7 +289,7 @@ def withdraw_from_escrow(request):
             )
     except Exception as e:
         return JsonResponse({"status":"error","message":str(e)}, status=400)
-
+@require_POST
 @csrf_exempt
 @transaction.atomic
 def complete_escrow(request, escrow_id):
@@ -306,7 +309,7 @@ def complete_escrow(request, escrow_id):
     else:
         return JsonResponse({"status": "failure", "message": "Escrow is already completed."})
 
-
+@require_GET
 def get_escrow_by_user_id(request, user_id):
     try:
         escrow = Escrow.objects.select_for_update().get(seller_id=user_id)
@@ -325,5 +328,75 @@ def get_escrow_by_user_id(request, user_id):
         return JsonResponse(response)
     except Escrow.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Escrow not found"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
+    
+
+@require_GET
+def get_all_escrows(request):
+    try:
+        escrows = Escrow.objects.all()
+        response = []
+        for escrow in escrows:
+            response.append(
+                {
+                    "escrow_id": escrow.escrow_uid,
+                    "escrow_name": escrow.name,
+                    "usd_amount": escrow.usd_amount,
+                    "seller_id": escrow.seller_id,
+                    "btc_balance": escrow.btc_balance,
+                    "withdrawable_funds": escrow.Funds,
+                    "is_complete": escrow.is_complete,
+                    "is_held": escrow.is_held,
+                    "created_at": escrow.created_at,
+                    "completed_at": escrow.completed_at,
+                }
+            )
+        return JsonResponse({"status": "success", "escrows": response})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
+    
+
+@require_GET
+def get_escrow_by_id(request, escrow_id):
+    try:
+        escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
+        response = {
+            "escrow_id": escrow.escrow_uid,
+            "escrow_name":escrow.name,
+            "usd_amount": escrow.usd_amount,
+            "seller_id": escrow.seller_id,
+            "btc_balance": escrow.btc_balance,
+            "withdrawable_funds": escrow.Funds,
+            "is_complete": escrow.is_complete,
+            "is_held": escrow.is_held,
+            "created_at": escrow.created_at,
+            "completed_at": escrow.completed_at,
+        }
+        return JsonResponse(response)
+    except Escrow.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Escrow not found"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
+    
+@require_GET
+def get_all_users(request):
+    try:
+        users = CustomUser.objects.all()
+        response = []
+        for user in users:
+            response.append(
+                {
+                    "id": user.id,
+                    "uid": user.uid,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "wallet_address": user.wallet_address,
+                    "balance": user.balance,
+                    "btc_balance": user.btc_balance,
+                }
+            )
+        return JsonResponse({"status": "success", "users": response})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
