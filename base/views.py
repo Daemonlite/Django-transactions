@@ -245,36 +245,36 @@ def buy_from_escrow(request):
     except Exception as e:
         return JsonResponse({"status":"error","message":str(e)})
 
-@require_POST
-@transaction.atomic
-def withdraw_from_escrow(request):
-    try:
-        data = json.loads(request.body)
-        escrow_id = data["escrow_id"]
-        amount = data["amount"]
-        seller_id = data["seller_id"]
+# @require_POST
+# @transaction.atomic
+# def withdraw_from_escrow(request):
+#     try:
+#         data = json.loads(request.body)
+#         escrow_id = data["escrow_id"]
+#         amount = data["amount"]
+#         seller_id = data["seller_id"]
     
-        escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
-        seller =Profile.objects.select_for_update().get(uid=seller_id)
-        print(type(seller.uid))
-        print(type(escrow.seller_id))
-        amounts = Decimal(amount)
-        btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
-        btc_value = amounts * Decimal(btc_price["crypto"])
+#         escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
+#         seller =Profile.objects.select_for_update().get(uid=seller_id)
+#         print(type(seller.uid))
+#         print(type(escrow.seller_id))
+#         amounts = Decimal(amount)
+#         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
+#         btc_value = amounts * Decimal(btc_price["crypto"])
 
-        if  str(seller.uid) == escrow.seller_id and escrow.Funds >= amounts:
-            escrow.Funds -= amounts
-            seller.balance += amounts
-            escrow.btc_balance -= btc_value
-            escrow.save()
-            seller.save()
-            return JsonResponse({"status": "success"})
-        else:
-            return JsonResponse(
-                {"status": "failure", "message": "Insufficient funds","seller_id":escrow.seller_id,"seller":seller.uid}
-            )
-    except Exception as e:
-        return JsonResponse({"status":"error","message":str(e)}, status=400)
+#         if  str(seller.uid) == escrow.seller_id and escrow.Funds >= amounts:
+#             escrow.Funds -= amounts
+#             seller.balance += amounts
+#             escrow.btc_balance -= btc_value
+#             escrow.save()
+#             seller.save()
+#             return JsonResponse({"status": "success"})
+#         else:
+#             return JsonResponse(
+#                 {"status": "failure", "message": "Insufficient funds","seller_id":escrow.seller_id,"seller":seller.uid}
+#             )
+#     except Exception as e:
+#         return JsonResponse({"status":"error","message":str(e)}, status=400)
     
 
 @require_POST
@@ -319,14 +319,13 @@ def seller_release_coin(request):
             amounts = Decimal(held_coin.usd_amount)
             btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
             btc_value = amounts * Decimal(btc_price["crypto"])
-        else:
-            return JsonResponse({"status": "failure", "message": "Transaction not found."})
+            return JsonResponse({"status": "success", "message": "Coin released successfully."})
         
-        if not held_coin.seller_is_complete:
+        elif not held_coin.seller_is_complete:
             held_coin.seller_is_complete = True
             escrow.is_held = False
             escrow.is_complete = True
-            buyer.btc_balance = btc_value
+            buyer.btc_balance += btc_value
             held_coin.completed_at = timezone.now()
             buyer.save()
             escrow.save()
