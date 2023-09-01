@@ -10,7 +10,7 @@ from .models import Escrow,Profile,BTC,escrow_transaction_history,Held_Coin
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password,check_password
-from .utils import generate_random_string, add_fees
+from .utils import *
 from django.middleware import csrf
 from decimal import Decimal
 from django.utils import timezone
@@ -245,38 +245,6 @@ def buy_from_escrow(request):
     except Exception as e:
         return JsonResponse({"status":"error","message":str(e)})
 
-# @require_POST
-# @transaction.atomic
-# def withdraw_from_escrow(request):
-#     try:
-#         data = json.loads(request.body)
-#         escrow_id = data["escrow_id"]
-#         amount = data["amount"]
-#         seller_id = data["seller_id"]
-    
-#         escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
-#         seller =Profile.objects.select_for_update().get(uid=seller_id)
-#         print(type(seller.uid))
-#         print(type(escrow.seller_id))
-#         amounts = Decimal(amount)
-#         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
-#         btc_value = amounts * Decimal(btc_price["crypto"])
-
-#         if  str(seller.uid) == escrow.seller_id and escrow.Funds >= amounts:
-#             escrow.Funds -= amounts
-#             seller.balance += amounts
-#             escrow.btc_balance -= btc_value
-#             escrow.save()
-#             seller.save()
-#             return JsonResponse({"status": "success"})
-#         else:
-#             return JsonResponse(
-#                 {"status": "failure", "message": "Insufficient funds","seller_id":escrow.seller_id,"seller":seller.uid}
-#             )
-#     except Exception as e:
-#         return JsonResponse({"status":"error","message":str(e)}, status=400)
-    
-
 @require_POST
 @transaction.atomic
 def buyer_complete_escrow(request):
@@ -304,37 +272,33 @@ def buyer_complete_escrow(request):
     else:
         return JsonResponse({"status": "failure", "message": "Transaction is already completed."})
     
+
 @require_POST
 @transaction.atomic
 def seller_release_coin(request):
     data = json.loads(request.body)
     seller_id = data["seller_id"]
     order_id = data["order_id"]
+
     try:
-        held_coin= Held_Coin.objects.select_for_update().get( order_id = order_id )
+        held_coin = get_held_coin(order_id)
         escrow_id = held_coin.escrow_id
+
         if seller_id == held_coin.seller_id:
-            escrow =  Escrow.objects.select_for_update().get(escrow_uid = escrow_id)
-            buyer = Profile.objects.select_for_update().get(uid = held_coin.buyer_id)
-            amounts = Decimal(held_coin.usd_amount)
-            btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
-            btc_value = amounts * Decimal(btc_price["crypto"])
-            return JsonResponse({"status": "success", "message": "Coin released successfully."})
-        
-        elif not held_coin.seller_is_complete:
-            held_coin.seller_is_complete = True
-            escrow.is_held = False
-            escrow.is_complete = True
-            buyer.btc_balance += btc_value
-            held_coin.completed_at = timezone.now()
-            buyer.save()
-            escrow.save()
-            held_coin.save()
+            escrow = get_escrow(escrow_id)
+            buyer = get_buyer(held_coin.buyer_id)
+            btc_value = calculate_btc_value(held_coin.usd_amount)
+
+            if not held_coin.seller_is_complete:
+                complete_transaction(held_coin, escrow, buyer, btc_value)
+                return JsonResponse({"status": "success", "message": "Coin released successfully."})
+            else:
+                return JsonResponse({"status": "failure", "message": "Transaction is already completed."})
         else:
-            return JsonResponse({"status": "failure", "message": "Transaction is already completed."})
+            return JsonResponse({"status": "failure", "message": "Transaction not found."})
     except Exception as e:
         return JsonResponse({"status": "failure", "message": str(e)})
-    
+
 
 
 @require_GET
