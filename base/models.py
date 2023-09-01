@@ -13,6 +13,7 @@ class Profile(models.Model):
     wallet_address = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    isNotified = models.BooleanField(default=False)
     first_login = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)
     def __str__(self):
@@ -21,17 +22,19 @@ class Profile(models.Model):
 
 class Escrow(models.Model):
     name = models.CharField(max_length=100)
-    buyer_id = models.CharField(max_length=100,blank=True,null=True)
     seller_id = models.CharField(max_length=100,blank=True,null=True)
     usd_amount = models.DecimalField(max_digits=18, decimal_places=2,default=0)
     Funds = models.DecimalField(max_digits=18, decimal_places=2,default=0)
+    seller_contact = models.CharField(max_length=100,blank=True,null=True)
     btc_balance = models.DecimalField(max_digits=18, decimal_places=8,default=0)
     is_complete = models.BooleanField(default=False)
     is_held = models.BooleanField(default=False)
+    escrow_uid = models.UUIDField(default=uuid.uuid4, editable=True)
+    payment_method = models.CharField(max_length=100,blank=True,null=True)
+    rate = models.DecimalField(max_digits=18, decimal_places=2,default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    escrow_uid = models.UUIDField(default=uuid.uuid4, editable=True)
-    
+ 
     def complete(self):
         self.is_complete = True
         self.completed_at = timezone.now()
@@ -65,3 +68,19 @@ class escrow_transaction_history(models.Model):
         self.is_complete = True
         self.completed_at = timezone.now()
         self.save()
+
+class Held_Coin(models.Model):
+    seller_id = models.CharField(max_length=100,blank=True,null=True)
+    buyer_id = models.CharField(max_length=100,blank=True,null=True)
+    escrow_id = models.CharField(max_length=100,blank=True,null=True)
+    usd_amount = models.DecimalField(max_digits=18, decimal_places=2,default=0)
+    btc_amount = models.DecimalField(max_digits=18, decimal_places=8,default=0)
+    payment_method = models.CharField(max_length=100,blank=True,null=True)
+    seller_is_complete = models.BooleanField(default=False)
+    buyer_is_complete = models.BooleanField(default=False)
+    order_id = models.UUIDField(default=uuid.uuid4, editable=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(auto_now=True)
+
+
+
