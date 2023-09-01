@@ -187,7 +187,7 @@ def deposit_escrow(request):
     seller_wallet = data["seller_wallet"]
     amount = data["amount"]
     try:
-        escrow = Escrow.objects.select_for_update().get(escrow_uid =escrow_id)
+        escrow = get_escrow(escrow_id)
         seller =Profile.objects.select_for_update().get(wallet_address=seller_wallet)
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
@@ -220,8 +220,8 @@ def buy_from_escrow(request):
         buyer_id = data["buyer_id"]
         payment_method = data["payment_method"]
 
-        escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
-        buyer =Profile.objects.select_for_update().get(uid=buyer_id)
+        escrow = get_escrow(escrow_id)
+        buyer =get_user(buyer_id)
         seller_id = escrow.seller_id
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
@@ -254,8 +254,8 @@ def buyer_complete_escrow(request):
     seller_id = data["seller_id"]
     order_id = data["order_id"]
     try:
-        held_coin= Held_Coin.objects.select_for_update().get( order_id = order_id )
-        seller =  Profile.objects.select_for_update().get(uid = seller_id)
+        held_coin= get_held_coin(order_id)
+        seller =  get_user(seller_id)
     except Exception as e:
         logger.warning(str(e))
         return JsonResponse({"status": "failure", "message": "Transaction not found."})
@@ -304,7 +304,7 @@ def seller_release_coin(request):
 @require_GET
 def get_escrow_by_user_id(request, user_id):
     try:
-        escrow = Escrow.objects.select_for_update().get(seller_id=user_id)
+        escrow = get_escrow(user_id)
         response = {
             "escrow_id": escrow.escrow_uid,
             "escrow_name":escrow.name,
@@ -328,6 +328,7 @@ def get_escrow_by_user_id(request, user_id):
 def get_all_escrows(request):
     try:
         escrows = Escrow.objects.all()
+        merchant =  get_user(escrows[0].seller_id)
         response = []
         for escrow in escrows:
             response.append(
@@ -338,6 +339,9 @@ def get_all_escrows(request):
                     "seller_id": escrow.seller_id,
                     "btc_balance": escrow.btc_balance,
                     "withdrawable_funds": escrow.Funds,
+                    "rate":escrow.rate,
+                    "merchant":f"{merchant.first_name} {merchant.last_name}",
+                    "payment_method":escrow.payment_method,
                     "is_complete": escrow.is_complete,
                     "is_held": escrow.is_held,
                     "created_at": escrow.created_at,
@@ -352,7 +356,8 @@ def get_all_escrows(request):
 @require_GET
 def get_escrow_by_id(request, escrow_id):
     try:
-        escrow = Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
+        escrow = get_escrow(escrow_id)
+        merchant = get_user(escrow.seller_id)
         response = {
             "escrow_id": escrow.escrow_uid,
             "escrow_name":escrow.name,
@@ -360,6 +365,9 @@ def get_escrow_by_id(request, escrow_id):
             "seller_id": escrow.seller_id,
             "btc_balance": escrow.btc_balance,
             "withdrawable_funds": escrow.Funds,
+            "rate":escrow.rate,
+            "payment_method":escrow.payment_method,
+            "merchant": f"{merchant.first_name} {merchant.last_name}",
             "is_complete": escrow.is_complete,
             "is_held": escrow.is_held,
             "created_at": escrow.created_at,

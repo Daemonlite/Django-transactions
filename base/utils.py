@@ -26,6 +26,7 @@ def get_escrow(escrow_id):
     return Escrow.objects.select_for_update().get(escrow_uid=escrow_id)
 
 
+
 def get_buyer(buyer_id):
     return Profile.objects.select_for_update().get(uid=buyer_id)
 
@@ -45,3 +46,6 @@ def complete_transaction(held_coin, escrow, buyer, btc_value):
     buyer.save()
     escrow.save()
     held_coin.save()
+
+def get_user(user_id):
+    return Profile.objects.select_for_update().get(uid=user_id)
