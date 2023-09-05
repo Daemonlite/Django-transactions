@@ -5,7 +5,7 @@ from .models import *
 from decimal import Decimal
 from django.core.mail import send_mail
 def generate_random_string(length):
-    letters = string.ascii_letters  # Includes both lowercase and uppercase alphabets
+    letters = string.ascii_letters  
     return "".join(random.choice(letters) for _ in range(length))
 
 
