@@ -82,6 +82,9 @@ class Held_Coin(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.payment_method
+
  
 
 

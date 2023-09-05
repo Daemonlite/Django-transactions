@@ -3,7 +3,7 @@ import random
 import string
 from .models import *
 from decimal import Decimal
-
+from django.core.mail import send_mail
 def generate_random_string(length):
     letters = string.ascii_letters  # Includes both lowercase and uppercase alphabets
     return "".join(random.choice(letters) for _ in range(length))
@@ -49,3 +49,25 @@ def complete_transaction(held_coin, escrow, buyer, btc_value):
 
 def get_user(user_id):
     return Profile.objects.select_for_update().get(uid=user_id)
+
+
+def Notify_buyer(buyer_email):
+    subject = "Transaction Notification"
+    message = "I have received your funds and have released your crypto"
+    from_email = "noreply@bit.com"
+    recipient_list = [buyer_email]
+
+    send_mail(subject, message, from_email, recipient_list)
+
+
+
+def Notify_seller( seller_email):
+    subject = "Transaction Notification"
+    message = "You have received a notification from  your recent buyer."
+    from_email = "noreply@ybit.com"
+    recipient_list = [seller_email]
+
+    send_mail(subject, message, from_email, recipient_list)
+
+
+

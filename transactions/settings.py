@@ -123,8 +123,15 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 from decouple import config
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com' # Replace with your SMTP server's hostname or IP address
+EMAIL_PORT = 587  # Use the appropriate SMTP port (e.g., 587 for TLS, 465 for SSL)
+EMAIL_USE_TLS = True  # Use True for TLS, or False if not using TLS
+EMAIL_USE_SSL = False  # Use True for SSL, or False if not using SSL
+EMAIL_HOST_USER = 'paakwesinunoo135@gmail.com'
+EMAIL_HOST_PASSWORD = 'akpqghzayffeslqz'

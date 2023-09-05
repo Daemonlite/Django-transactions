@@ -219,14 +219,13 @@ def buy_from_escrow(request):
         amount = data["amount"]
         buyer_id = data["buyer_id"]
         payment_method = data["payment_method"]
-
         escrow = get_escrow(escrow_id)
         buyer =get_user(buyer_id)
         seller_id = escrow.seller_id
         amounts = Decimal(amount)
         btc_price = BTC.objects.values("crypto").filter(fiat="USD").latest("date")
         btc_value = amounts * Decimal(btc_price["crypto"])
-
+        seller = get_user(seller_id)
         escrow.is_held = True
         
         held_coin = {
@@ -238,8 +237,9 @@ def buy_from_escrow(request):
         "payment_method":payment_method,
         }
         Held_Coin.objects.create(**held_coin)
+        Notify_seller(seller.email)
         
-        return JsonResponse({"status": "success","message":f"Btc Purchase of {amount}$  from {escrow.name} has been initiated successfully"})
+        return JsonResponse({"status": "success","message":f"Btc Purchase of {amount}$ from {escrow.name} has been initiated successfully"})
       
 
     except Exception as e:
@@ -267,6 +267,7 @@ def buyer_complete_escrow(request):
         seller.isNotified = True
         seller.save()
         held_coin.save()
+        Notify_seller(seller.email)
 
         return JsonResponse({"status": "success", "message": "Seller Notified, Your btc will be released once seller accepts."})
     else:
@@ -291,6 +292,7 @@ def seller_release_coin(request):
 
             if not held_coin.seller_is_complete:
                 complete_transaction(held_coin, escrow, buyer, btc_value)
+                Notify_buyer(buyer.email)
                 return JsonResponse({"status": "success", "message": "Coin released successfully."})
             else:
                 return JsonResponse({"status": "failure", "message": "Transaction is already completed."})
@@ -328,7 +330,6 @@ def get_escrow_by_user_id(request, user_id):
 def get_all_escrows(request):
     try:
         escrows = Escrow.objects.all()
-        merchant =  get_user(escrows[0].seller_id)
         response = []
         for escrow in escrows:
             response.append(
@@ -340,7 +341,6 @@ def get_all_escrows(request):
                     "btc_balance": escrow.btc_balance,
                     "withdrawable_funds": escrow.Funds,
                     "rate":escrow.rate,
-                    "merchant":f"{merchant.first_name} {merchant.last_name}",
                     "payment_method":escrow.payment_method,
                     "is_complete": escrow.is_complete,
                     "is_held": escrow.is_held,
