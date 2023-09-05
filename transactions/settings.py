@@ -133,5 +133,6 @@ EMAIL_HOST = 'smtp.gmail.com' # Replace with your SMTP server's hostname or IP a
 EMAIL_PORT = 587  # Use the appropriate SMTP port (e.g., 587 for TLS, 465 for SSL)
 EMAIL_USE_TLS = True  # Use True for TLS, or False if not using TLS
 EMAIL_USE_SSL = False  # Use True for SSL, or False if not using SSL
-EMAIL_HOST_USER = config('EMAIL_HOST')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_USER = 'paakwesinunoo135@gmail.com'
+EMAIL_HOST_PASSWORD = 'akpqghzayffeslqz'
+
