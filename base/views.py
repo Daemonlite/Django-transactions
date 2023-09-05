@@ -19,43 +19,42 @@ import logging
 from django.db.models import F
 logger = logging.getLogger(__name__)
 
-
+@require_POST
 @csrf_exempt
 def register_user(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-        wallet_address = generate_random_string(30)
+    data = json.loads(request.body)
+    wallet_address = generate_random_string(30)
 
-        try:
-            user_data = {
-                "email": data["email"],
-                "first_name": data["first_name"],
-                "last_name": data["last_name"],
-                "password": make_password(data["password"]),
-                "wallet_address": wallet_address,
-            }
-            user =Profile.objects.create(**user_data)
-            return JsonResponse(
-                {
-                    "message": "User created successfully",
-                    "user": {
-                        "id": user.id,
-                        "uid": user.uid,
-                        "email": user.email,
-                        "password": user.password,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "wallet_address": user.wallet_address,
-                        "balance": user.balance,
-                        "btc_balance": user.btc_balance,
-                        "csrf_token": csrf.get_token(request),
-                    },
+    try:
+        user_data = {
+            "email": data["email"],
+            "first_name": data["first_name"],
+            "last_name": data["last_name"],
+            "password": make_password(data["password"]),
+            "wallet_address": wallet_address,
+        }
+        user =Profile.objects.create(**user_data)
+        return JsonResponse(
+            {
+                "message": "User created successfully",
+                "user": {
+                    "id": user.id,
+                    "uid": user.uid,
+                    "email": user.email,
+                    "password": user.password,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "wallet_address": user.wallet_address,
+                    "balance": user.balance,
+                    "btc_balance": user.btc_balance,
+                    "csrf_token": csrf.get_token(request),
                 },
-                status=201,
-            )
+            },
+            status=201,
+        )
 
-        except Exception as e:
-            return JsonResponse({"message": "Enter required fields","error": str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({"message": "Enter required fields","error": str(e)}, status=400)
 
 
 @csrf_exempt
